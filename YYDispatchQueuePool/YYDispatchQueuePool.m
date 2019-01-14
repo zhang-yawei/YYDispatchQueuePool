@@ -38,15 +38,18 @@ static inline qos_class_t NSQualityOfServiceToQOSClass(NSQualityOfService qos) {
 }
 
 typedef struct {
-    const char *name;
-    void **queues;
-    uint32_t queueCount;
-    int32_t counter;
+    const char *name;  // 名字
+    void **queues;    // 队列
+    uint32_t queueCount; // 队列数
+    int32_t counter;  //当前调用queue的次数.
 } YYDispatchContext;
 
+//生成DispatchContext, 指定队列的个数,以及优先级,队列都是串行队列. 用来限制线程数.
 static YYDispatchContext *YYDispatchContextCreate(const char *name,
                                                  uint32_t queueCount,
                                                  NSQualityOfService qos) {
+    // calloc分配内存,可以指定个数,且分配的空间,初始化为0
+    // malloc分配内存空间,参数只有一个size,所分配的空间里,为垃圾数据
     YYDispatchContext *context = calloc(1, sizeof(YYDispatchContext));
     if (!context) return NULL;
     context->queues =  calloc(queueCount, sizeof(void *));
@@ -94,12 +97,14 @@ static void YYDispatchContextRelease(YYDispatchContext *context) {
 }
 
 static dispatch_queue_t YYDispatchContextGetQueue(YYDispatchContext *context) {
+    // 轮流取出第几个queuue
     uint32_t counter = (uint32_t)OSAtomicIncrement32(&context->counter);
     void *queue = context->queues[counter % context->queueCount];
     return (__bridge dispatch_queue_t)(queue);
 }
 
 
+// 根据qos,获取对应的dispatchContext
 static YYDispatchContext *YYDispatchContextGetForQOS(NSQualityOfService qos) {
     static YYDispatchContext *context[5] = {0};
     switch (qos) {
